@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Pixel Studio • IFrame Container</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    body { overflow: hidden; font-family: 'Inter', system-ui, sans-serif; }
+    .crop-overlay {
+      position: absolute;
+      border: 2px dashed #3b82f6;
+      background: rgba(59, 130, 246, 0.15);
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+      pointer-events: none;
+    }
+    input[type="range"] { accent-color: #3b82f6; width: 100%; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: #1f2937; }
+    ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+    .iframe-wrapper {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: auto;
+      height: 100%;
+    }
+    .left-toolbar {
+      position: relative;
+      z-index: 10;
+    }
+    body.full header { display: none; }
+    body.full footer { display: none; }
+    body.full #toolbar { display: none; }
+    #resizeBtn { bottom: 20px; }
+    body.full #resizeBtn { bottom: 20px; }
+    body #resizeBtn .fa-compress-alt { display: none; }
+    body.full #resizeBtn .fa-compress-alt { display: block; }
+    body #resizeBtn .fa-expand { display: block; }
+    body.full #resizeBtn .fa-expand { display: none; }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-200 h-screen flex flex-col overflow-hidden">
+
+  <header class="flex items-center justify-between px-3 py-0 border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm">
+    <div class="flex items-center gap-2">
+      <i class="fas fa-magic text-indigo-400 text-lg"></i>
+      <span class="font-semibold text-sm tracking-tight bg-gradient-to-r from-white to-indigo-300 bg-clip-text text-transparent">IFRAME Container</span>
+    </div>
+  </header>
+
+  <main class="flex flex-1 min-h-0 overflow-hidden p-0 gap-0">
+    <!-- Left toolbar with app switcher buttons -->
+    <div id="toolbar" class="w-12 bg-gray-900/60 backdrop-blur-sm rounded-2xl border border-gray-800 flex flex-col items-center py-4 gap-3">
+      <!-- App switcher buttons (new) -->
+      <div class="tool-icon w-8 h-8 flex flex-col items-center justify-center rounded-xl cursor-pointer hover:bg-gray-800 text-gray-400 hover:text-white transition" id="switchTransferBtn" title="Transfer Database">
+        <i class="fas fa-exchange-alt text-sm"></i><span class="text-[9px] mt-0.5">Transfer</span>
+      </div>
+      <div class="tool-icon w-8 h-8 flex flex-col items-center justify-center rounded-xl cursor-pointer hover:bg-gray-800 text-gray-400 hover:text-white transition" id="switchAvatarBtn" title="Avatar Updater">
+        <i class="fas fa-user-circle text-sm"></i><span class="text-[9px] mt-0.5">Avatar</span>
+      </div>
+      <!-- Separator line (visual) -->
+      <div class="w-6 h-px bg-gray-700 my-1"></div>
+      <!-- Existing editing tools (kept, but inactive for these apps) -->
+      <div class="tool-icon w-8 h-8 flex flex-col items-center justify-center rounded-xl cursor-pointer hover:bg-gray-800 text-gray-400 hover:text-white transition" id="cropToolBtn" title="Rectangular Crop">
+        <i class="fas fa-crop-alt text-sm"></i><span class="text-[9px] mt-0.5">Crop</span>
+      </div>
+      <div class="tool-icon w-8 h-8 flex flex-col items-center justify-center rounded-xl cursor-pointer hover:bg-gray-800 text-gray-400 hover:text-white transition" id="circleCropToolBtn" title="Circular Crop">
+        <i class="fas fa-circle text-sm"></i><span class="text-[9px] mt-0.5">Circle</span>
+      </div>
+      <div class="tool-icon w-8 h-8 flex flex-col items-center justify-center rounded-xl cursor-pointer hover:bg-gray-800 text-gray-400 hover:text-white transition" id="rotateLeftBtn" title="Rotate Left">
+        <i class="fas fa-undo-alt text-sm"></i><span class="text-[9px] mt-0.5">Rot L</span>
+      </div>
+      <div class="tool-icon w-8 h-8 flex flex-col items-center justify-center rounded-xl cursor-pointer hover:bg-gray-800 text-gray-400 hover:text-white transition" id="rotateRightBtn" title="Rotate Right">
+        <i class="fas fa-redo-alt text-sm"></i><span class="text-[9px] mt-0.5">Rot R</span>
+      </div>
+      <div class="tool-icon w-8 h-8 flex flex-col items-center justify-center rounded-xl cursor-pointer hover:bg-gray-800 text-gray-400 hover:text-white transition" id="flipHBtn" title="Flip Horizontal">
+        <i class="fas fa-arrows-alt-h text-sm"></i><span class="text-[9px] mt-0.5">Flip H</span>
+      </div>
+      <div class="tool-icon w-8 h-8 flex flex-col items-center justify-center rounded-xl cursor-pointer hover:bg-gray-800 text-gray-400 hover:text-white transition" id="flipVBtn" title="Flip Vertical">
+        <i class="fas fa-arrows-alt-v text-sm"></i><span class="text-[9px] mt-0.5">Flip V</span>
+      </div>
+      <div class="tool-icon w-8 h-8 flex flex-col items-center justify-center rounded-xl cursor-pointer hover:bg-gray-800 text-gray-400 hover:text-white transition" id="addTextBtn" title="Add Text">
+        <i class="fas fa-text-height text-sm"></i><span class="text-[9px] mt-0.5">Text</span>
+      </div>
+      <div class="tool-icon w-8 h-8 flex flex-col items-center justify-center rounded-xl cursor-pointer hover:bg-gray-800 text-gray-400 hover:text-white transition" id="resizeToolBtn" title="Resize">
+        <i class="fas fa-expand-alt text-sm"></i><span class="text-[9px] mt-0.5">Resize</span>
+      </div>
+    </div>
+
+    <!-- iframe area -->
+    <div class="flex-1 bg-black/30 backdrop-blur-sm rounded-2xl border border-gray-800 flex flex-col overflow-hidden min-h-0">
+      <div class="iframe-wrapper flex-1 flex items-center justify-center p-0 h-full" id="iframeWrapper">
+        <iframe id="iframe" width="100%" height="100%" class="max-w-full max-h-full rounded-md shadow-2xl h-full w-full" src="transfer.html"></iframe>
+      </div>
+    </div>
+  </main>
+
+  <footer class="flex justify-around items-center py-1 px-2 border-t border-gray-800 bg-gray-900/80 backdrop-blur-sm text-[11px]">
+    <!-- Footer content can be added later if needed -->
+  </footer>
+
+  <button id="resizeBtn" class="fixed left-5 z-50 flex flex-col items-center gap-0.5 text-gray-400 hover:text-white transition">
+    <i class="fas fa-expand text-lg"></i>
+    <i class="fas fa-compress-alt text-lg"></i>
+  </button>
+
+  <script>
+    // Switch iframe source between the two apps
+    const iframe = document.getElementById('iframe');
+    const switchTransfer = document.getElementById('switchTransferBtn');
+    const switchAvatar = document.getElementById('switchAvatarBtn');
+
+    switchTransfer.addEventListener('click', () => {
+      iframe.src = 'transfer.html';
+      // Optional: highlight active button (add class 'active')
+      switchTransfer.classList.add('active');
+      switchAvatar.classList.remove('active');
+    });
+    switchAvatar.addEventListener('click', () => {
+      iframe.src = 'userapi.html';
+      switchAvatar.classList.add('active');
+      switchTransfer.classList.remove('active');
+    });
+
+    // Fullscreen toggle (existing)
+    const resizeBtn = document.getElementById('resizeBtn');
+    resizeBtn.addEventListener('click', () => {
+      document.body.classList.toggle('full');
+    });
+
+    // Default active button (transfer)
+    switchTransfer.classList.add('active');
+  </script>
+</body>
+</html>
