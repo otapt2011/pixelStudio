@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>tikDB Transfer • user_posts with cover images</title>
+  <!-- Tailwind CSS + Font Awesome -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    /* Custom scrollbar and glassmorphic extras */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #1f2937; }
+    ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 6px; }
+    pre {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+    progress {
+      accent-color: #10b981;
+    }
+    input[type="file"]::file-selector-button {
+      background: #2d3748;
+      color: #e2e8f0;
+      border: none;
+      border-radius: 9999px;
+      padding: 0.25rem 0.75rem;
+      margin-right: 1rem;
+      cursor: pointer;
+      transition: 0.1s;
+    }
+    input[type="file"]::file-selector-button:hover {
+      background: #4a5568;
+    }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-200 font-sans antialiased">
+
+  <!-- Header (compact) -->
+  <header class="border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-10">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
+      <i class="fas fa-database text-emerald-400 text-lg"></i>
+      <span class="font-semibold text-sm tracking-tight bg-gradient-to-r from-white to-emerald-300 bg-clip-text text-transparent">tikDB Transfer</span>
+      <span class="text-xs text-gray-500 ml-auto">Owner: <code class="bg-gray-800 px-1.5 py-0.5 rounded">abigail4410</code></span>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-6">
+    <!-- Main card (glassmorphic) -->
+    <div class="bg-gray-900/60 backdrop-blur-sm border border-gray-800 rounded-2xl p-5 shadow-xl">
+      <div class="flex items-center gap-2 mb-4">
+        <i class="fas fa-exchange-alt text-emerald-400 text-sm"></i>
+        <h1 class="text-base font-semibold">Transfer <code class="bg-gray-800 px-2 py-0.5 rounded text-xs">user_posts</code> (with cover images)</h1>
+      </div>
+
+      <!-- File inputs -->
+      <div class="space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+          <label class="text-xs font-medium text-gray-400 w-28"><i class="fas fa-database mr-1"></i>Source DB:</label>
+          <input type="file" id="sourceFileInput" accept=".db,.sqlite" class="text-sm text-gray-300 file:bg-gray-800 file:text-gray-200 file:rounded-full file:border-0 file:px-3 file:py-1 file:mr-3 file:hover:bg-gray-700 transition">
+        </div>
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+          <label class="text-xs font-medium text-gray-400 w-28"><i class="fas fa-bullseye mr-1"></i>Target DB:</label>
+          <input type="file" id="targetFileInput" accept=".db,.sqlite" class="text-sm text-gray-300 file:bg-gray-800 file:text-gray-200 file:rounded-full file:border-0 file:px-3 file:py-1 file:mr-3 file:hover:bg-gray-700 transition">
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex flex-wrap gap-3 mt-5">
+        <button id="transferBtn" disabled class="bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:text-gray-400 text-white text-xs font-medium px-4 py-2 rounded-full transition flex items-center gap-2">
+          <i class="fas fa-arrow-right"></i> Transfer (source → target)
+        </button>
+        <button id="downloadBtn" disabled class="bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-gray-200 text-xs font-medium px-4 py-2 rounded-full transition flex items-center gap-2">
+          <i class="fas fa-download"></i> Download as tikPosts.db
+        </button>
+        <button id="showCoverBtn" disabled class="bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-gray-200 text-xs font-medium px-4 py-2 rounded-full transition flex items-center gap-2">
+          <i class="fas fa-image"></i> Show sample cover
+        </button>
+      </div>
+
+      <!-- Status area -->
+      <div id="status" class="mt-4 text-xs bg-gray-800/50 border border-gray-700 rounded-xl px-3 py-2 text-gray-300">
+        Select source and target database files, then click Transfer.
+      </div>
+
+      <!-- Progress bar -->
+      <progress id="progressBar" value="0" max="100" class="w-full h-2 rounded-full mt-3 hidden"></progress>
+
+      <!-- Cover preview (hidden initially) -->
+      <div id="coverPreview" class="mt-4 p-3 bg-gray-800/30 border border-gray-700 rounded-xl hidden">
+        <!-- content inserted dynamically -->
+      </div>
+
+      <!-- Log area -->
+      <div class="mt-5">
+        <div class="flex items-center gap-2 mb-2">
+          <i class="fas fa-terminal text-gray-500 text-xs"></i>
+          <h3 class="text-xs font-semibold text-gray-400">Operation Log</h3>
+        </div>
+        <pre id="output" class="bg-gray-950 border border-gray-800 rounded-xl p-3 text-xs font-mono text-gray-300 overflow-x-auto max-h-64 overflow-y-auto">No action yet.</pre>
+      </div>
+    </div>
+  </main>
+
+  <!-- Include the same SQLite library (unchanged) -->
+  <script src="js/jafersql.js"></script>
+
+  <!-- Original script (functionality untouched, only UI references kept) -->
+  <script>
+    (function() {
+      const sourceFileInput = document.getElementById('sourceFileInput');
+      const targetFileInput = document.getElementById('targetFileInput');
+      const transferBtn = document.getElementById('transferBtn');
+      const downloadBtn = document.getElementById('downloadBtn');
+      const showCoverBtn = document.getElementById('showCoverBtn');
+      const statusDiv = document.getElementById('status');
+      const outputPre = document.getElementById('output');
+      const progressBar = document.getElementById('progressBar');
+      const coverPreviewDiv = document.getElementById('coverPreview');
+
+      const OWNER = 'abigail4410';
+
+      let targetDbInstance = null;      // holds opened target DB (after transfer)
+      let currentCoverBlobUrl = null;
+      let sourceFileBuffer = null;
+      let targetFileBuffer = null;
+
+      // Enable transfer only when both files are selected
+      function checkFiles() {
+        const sourceOk = sourceFileInput.files.length > 0;
+        const targetOk = targetFileInput.files.length > 0;
+        transferBtn.disabled = !(sourceOk && targetOk);
+      }
+
+      sourceFileInput.addEventListener('change', checkFiles);
+      targetFileInput.addEventListener('change', checkFiles);
+
+      function setStatus(message, type = 'info') {
+        statusDiv.textContent = message;
+        // We keep simple text; no need for complex classes, but we can still style
+        statusDiv.className = `mt-4 text-xs rounded-xl px-3 py-2 ${
+          type === 'error' ? 'bg-red-950/50 border border-red-800 text-red-300' :
+          type === 'success' ? 'bg-emerald-950/50 border border-emerald-800 text-emerald-300' :
+          'bg-gray-800/50 border border-gray-700 text-gray-300'
+        }`;
+      }
+
+      function appendLog(text, isError = false) {
+        const timestamp = new Date().toLocaleTimeString();
+        const prefix = isError ? '❌' : '✓';
+        outputPre.textContent += `[${timestamp}] ${prefix} ${text}\n`;
+        outputPre.scrollTop = outputPre.scrollHeight;
+      }
+
+      function clearLog() {
+        outputPre.textContent = '';
+      }
+
+      function clearCoverPreview() {
+        if (currentCoverBlobUrl) {
+          URL.revokeObjectURL(currentCoverBlobUrl);
+          currentCoverBlobUrl = null;
+        }
+        coverPreviewDiv.style.display = 'none';
+        coverPreviewDiv.innerHTML = '';
+      }
+
+      async function readFileAsBuffer(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsArrayBuffer(file);
+        });
+      }
+
+      async function openDatabaseFromBuffer(buffer) {
+        return await JaferSQL.jaferInit(new Uint8Array(buffer));
+      }
+
+      async function transferPosts() {
+        if (!sourceFileInput.files[0] || !targetFileInput.files[0]) {
+          alert('Please select both source and target database files.');
+          return;
+        }
+
+        transferBtn.disabled = true;
+        downloadBtn.disabled = true;
+        showCoverBtn.disabled = true;
+        clearLog();
+        clearCoverPreview();
+        setStatus('Reading database files...', 'info');
+        progressBar.style.display = 'block';
+        progressBar.value = 0;
+
+        let sourceDb = null;
+        let targetDb = null;
+
+        try {
+          // Read file buffers
+          appendLog(`Reading source: ${sourceFileInput.files[0].name}`);
+          const sourceBuffer = await readFileAsBuffer(sourceFileInput.files[0]);
+          appendLog(`Reading target: ${targetFileInput.files[0].name}`);
+          const targetBuffer = await readFileAsBuffer(targetFileInput.files[0]);
+
+          // Open databases
+          appendLog(`Opening source database...`);
+          sourceDb = await openDatabaseFromBuffer(sourceBuffer);
+          appendLog(`Opening target database...`);
+          targetDb = await openDatabaseFromBuffer(targetBuffer);
+          targetDbInstance = targetDb;
+
+          // Ensure target table schema
+          targetDb.jaferExec(`
+            CREATE TABLE IF NOT EXISTS user_posts (
+              owner_username TEXT NOT NULL,
+              post_date TEXT NOT NULL,
+              likes INTEGER,
+              sound TEXT,
+              cover_image_data BLOB,
+              cover_image_expired INTEGER DEFAULT 0,
+              fetched_at TEXT,
+              PRIMARY KEY (owner_username, post_date)
+            )
+          `);
+          appendLog('Target table verified/created.');
+
+          // Query source rows
+          appendLog(`Fetching rows from source WHERE owner_username = '${OWNER}' ...`);
+          const rows = sourceDb.jaferAll(`
+            SELECT 
+              owner_username, post_date, likes, sound, 
+              cover_image_data, cover_image_expired, fetched_at
+            FROM user_posts
+            WHERE owner_username = ?
+          `, [OWNER]);
+
+          if (!rows.length) {
+            setStatus(`No posts found for owner "${OWNER}" in source.`, 'info');
+            appendLog(`No rows to transfer.`);
+            targetDbInstance = null;
+            return;
+          }
+
+          appendLog(`Found ${rows.length} rows. Upserting into target...`);
+          progressBar.max = rows.length;
+          progressBar.value = 0;
+
+          // Begin transaction
+          targetDb.jaferRun('BEGIN TRANSACTION');
+
+          const stmt = targetDb._db.prepare(`
+            INSERT INTO user_posts (
+              owner_username, post_date, likes, sound,
+              cover_image_data, cover_image_expired, fetched_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(owner_username, post_date) DO UPDATE SET
+              likes = excluded.likes,
+              sound = excluded.sound,
+              cover_image_data = excluded.cover_image_data,
+              cover_image_expired = excluded.cover_image_expired,
+              fetched_at = excluded.fetched_at
+          `);
+
+          for (const row of rows) {
+            stmt.bind([
+              row.owner_username,
+              row.post_date,
+              row.likes,
+              row.sound,
+              row.cover_image_data,
+              row.cover_image_expired,
+              row.fetched_at
+            ]);
+            stmt.step();
+            stmt.reset();
+            progressBar.value++;
+          }
+          stmt.free();
+          targetDb.jaferRun('COMMIT');
+
+          appendLog(`✅ Transfer complete: ${rows.length} rows upserted (cover images preserved).`);
+          setStatus(`Success! ${rows.length} posts copied to target database.`, 'success');
+          progressBar.style.display = 'none';
+
+          // Enable download and show cover buttons
+          downloadBtn.disabled = false;
+          showCoverBtn.disabled = false;
+        } catch (err) {
+          console.error(err);
+          setStatus(`Transfer failed: ${err.message}`, 'error');
+          appendLog(`ERROR: ${err.message}`, true);
+          if (targetDb) {
+            try { targetDb.jaferRun('ROLLBACK'); } catch (e) {}
+            try { targetDb.jaferClose(); } catch (e) {}
+            targetDbInstance = null;
+          }
+          progressBar.style.display = 'none';
+        } finally {
+          if (sourceDb) {
+            try { sourceDb.jaferClose(); appendLog('Source database closed.'); } catch (e) {}
+          }
+          transferBtn.disabled = false;
+        }
+      }
+
+      async function showSampleCover() {
+        if (!targetDbInstance) {
+          alert('No target database available. Please run a successful transfer first.');
+          return;
+        }
+        clearCoverPreview();
+        try {
+          const row = targetDbInstance.jaferGet(`
+            SELECT cover_image_data, post_date, likes
+            FROM user_posts
+            WHERE owner_username = ? AND cover_image_data IS NOT NULL
+            LIMIT 1
+          `, [OWNER]);
+
+          if (!row || !row.cover_image_data) {
+            appendLog('No cover image found in target database for this owner.', true);
+            return;
+          }
+
+          const imageData = row.cover_image_data;
+          const blob = new Blob([imageData], { type: 'image/jpeg' });
+          const blobUrl = URL.createObjectURL(blob);
+          currentCoverBlobUrl = blobUrl;
+
+          const img = document.createElement('img');
+          img.src = blobUrl;
+          img.alt = `Cover from ${row.post_date || 'unknown date'}`;
+          img.className = 'max-w-full max-h-64 rounded-lg shadow-md mx-auto';
+
+          coverPreviewDiv.innerHTML = `
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-xs font-semibold text-emerald-400"><i class="fas fa-image mr-1"></i>Sample cover image</h4>
+              <button id="closePreviewBtn" class="text-gray-400 hover:text-white text-xs"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="text-xs text-gray-400 mb-2">
+              <span>📅 ${row.post_date || 'unknown date'}</span> •
+              <span>❤️ ${row.likes || 0} likes</span>
+            </div>
+          `;
+          coverPreviewDiv.appendChild(img);
+          coverPreviewDiv.style.display = 'block';
+
+          document.getElementById('closePreviewBtn')?.addEventListener('click', () => {
+            clearCoverPreview();
+          });
+
+          appendLog(`Displayed cover image from post dated ${row.post_date || 'unknown'}.`);
+        } catch (err) {
+          console.error(err);
+          appendLog(`Failed to show cover: ${err.message}`, true);
+        }
+      }
+
+      function downloadTargetDatabase() {
+        if (!targetDbInstance) {
+          alert('No target database available. Please run a successful transfer first.');
+          return;
+        }
+        try {
+          const exportedData = targetDbInstance.jaferExport();
+          const blob = new Blob([exportedData], { type: 'application/octet-stream' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'tikPosts.db';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          appendLog(`Downloaded target database as "tikPosts.db" (${exportedData.length} bytes).`);
+        } catch (err) {
+          appendLog(`Download failed: ${err.message}`, true);
+        }
+      }
+
+      transferBtn.addEventListener('click', transferPosts);
+      downloadBtn.addEventListener('click', downloadTargetDatabase);
+      showCoverBtn.addEventListener('click', showSampleCover);
+    })();
+  </script>
+</body>
+</html>
